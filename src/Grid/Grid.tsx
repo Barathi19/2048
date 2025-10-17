@@ -12,6 +12,28 @@ function emptyBoard(size: number) {
   return range(size).map(() => range(size).map(() => 0));
 }
 
+function hasWon(board: number[][]) {
+  return board.some((row) => row.includes(2048));
+}
+
+function hasMoves(board: number[][]) {
+  if (positionsOf(board, (v) => v === 0).length > 0) return true;
+
+  const size = board.length;
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const val = board[r][c];
+      if (
+        (r < size - 1 && board[r + 1][c] === val) ||
+        (c < size - 1 && board[r][c + 1] === val)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function rotateBoardCW(board: number[][]) {
   const n = board.length;
   const out = emptyBoard(n);
@@ -108,22 +130,31 @@ export default function Grid() {
   const [board, setBoard] = useState(initBoard());
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [won, setWon] = useState(false);
 
   const handleMove = useCallback(
     (dir: "left" | "right" | "up" | "down") => {
+      if (gameOver || won) return;
+
       const { newBoard, scoreToAdd } = move(board, dir);
       if (newBoard !== board) {
         setScore((prev) => prev + scoreToAdd);
         setBoard(newBoard);
         setBestScore((prev) => Math.max(prev, score + scoreToAdd));
+
+        if (hasWon(newBoard)) setWon(true);
+        else if (!hasMoves(newBoard)) setGameOver(true);
       }
     },
-    [board, score]
+    [board, score, gameOver, won]
   );
 
   const handleReset = () => {
     setBoard(initBoard());
     setScore(0);
+    setGameOver(false);
+    setWon(false);
   };
 
   useEffect(() => {
@@ -165,6 +196,46 @@ export default function Grid() {
           maxWidth: "400px",
         }}
       >
+        {gameOver && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
+            <div className="bg-white p-6 rounded-lg text-center shadow-lg">
+              <h2 className="text-2xl font-bold text-red-600 mb-4">
+                Game Over!
+              </h2>
+              <button
+                onClick={handleReset}
+                className="bg-amber-500 text-white px-4 py-2 rounded font-semibold cursor-pointer"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        )}
+
+        {won && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50">
+            <div className="bg-white p-6 rounded-lg text-center shadow-lg">
+              <h2 className="text-2xl font-bold text-green-600 mb-4">
+                🎉 You Win!
+              </h2>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={handleReset}
+                  className="bg-amber-500 text-white px-4 py-2 rounded font-semibold cursor-pointer"
+                >
+                  Restart
+                </button>
+                <button
+                  onClick={() => setWon(false)}
+                  className="bg-gray-400 text-white px-4 py-2 rounded font-semibold cursor-pointer"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {board.map((row, rIdx) =>
           row.map((val, cIdx) => (
             <div
